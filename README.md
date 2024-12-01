@@ -1,4 +1,4 @@
-# Image Segmentation and CIE L*a*b* Color Analysis
+# Image Segmentation and CIE L* a* b* Color Analysis
 
 ## Overview
 
