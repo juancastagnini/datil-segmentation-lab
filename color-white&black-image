@@ -1,0 +1,115 @@
+# ------------------------------------------------------------------------------
+# Image Segmentation and Analysis Using a White Background Mask
+# Author: [Castagnini J.M.]
+# Date: [1/12/2014]
+# Version: 1.0
+#
+# License:
+# This script is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0).
+# You are free to share, reuse, and adapt the code, as long as appropriate credit is given.
+# More information about the license: https://creativecommons.org/licenses/by/4.0/
+#
+# Description:
+# This script generates a segmentation mask from an image with a white background
+# and applies it to a black background image to analyze regions. It calculates
+# the color properties in the CIE L*a*b* space, as well as the area and position
+# of each segmented region. The final segmented image is saved as an output.
+# ------------------------------------------------------------------------------
+
+# Import required libraries
+import matplotlib.pyplot as plt
+from skimage import io, color, filters, measure, morphology, img_as_ubyte
+import numpy as np
+import pandas as pd
+
+# Step 1: Generate the Segmentation Mask from a White Background Image
+def generate_mask(white_bg_image_path, save_mask_path="segmentation_mask.npy"):
+    # Load the white background image
+    white_image = io.imread(white_bg_image_path)
+    gray_image = color.rgb2gray(white_image)
+
+    # Apply thresholding to segment the image
+    threshold = filters.threshold_otsu(gray_image)
+    binary_mask = gray_image < threshold
+
+    # Refine the mask
+    binary_mask = morphology.remove_small_objects(binary_mask, 200)  # Remove noise
+    binary_mask = morphology.remove_small_holes(binary_mask, 200)  # Fill holes
+
+    # Save the segmentation mask
+    np.save(save_mask_path, binary_mask)
+    print(f"Segmentation mask saved as: {save_mask_path}")
+
+    # Visualize the mask
+    plt.imshow(binary_mask, cmap="gray")
+    plt.title("Segmentation Mask (White Background)")
+    plt.axis("off")
+    plt.show()
+
+    return binary_mask
+
+# Step 2: Apply the Mask to a Black Background Image and Analyze
+def analyze_black_bg_image(black_bg_image_path, mask_path, output_segmented_image_path="segmented_black_image.jpg"):
+    # Load the segmentation mask
+    segmentation_mask = np.load(mask_path)
+
+    # Load the black background image
+    black_image = io.imread(black_bg_image_path)
+
+    # Ensure the black background image matches the mask dimensions
+    if black_image.shape[:2] != segmentation_mask.shape:
+        from skimage.transform import resize
+        black_image = resize(black_image, segmentation_mask.shape, anti_aliasing=True, preserve_range=True).astype(black_image.dtype)
+
+    # Apply the mask to the black background image
+    masked_image = black_image.copy()
+    masked_image[~segmentation_mask] = 255  # Set background to white
+
+    # Analyze the masked regions
+    labeled_image = measure.label(segmentation_mask)
+    regions = measure.regionprops(labeled_image, intensity_image=color.rgb2gray(black_image))
+    lab_image = color.rgb2lab(black_image)
+
+    # Extract data from the regions
+    fruit_data = []
+    for region in regions:
+        if region.area >= 500:  # Filter small regions
+            fruit_mask = labeled_image == region.label
+            fruit_lab = lab_image[fruit_mask]
+            mean_lab = fruit_lab.mean(axis=0)
+            fruit_data.append({
+                "L*": mean_lab[0],
+                "a*": mean_lab[1],
+                "b*": mean_lab[2],
+                "Area": region.area,
+                "Centroid": region.centroid,
+                "Bounding Box": region.bbox
+            })
+
+    # Save the segmented black background image
+    io.imsave(output_segmented_image_path, img_as_ubyte(masked_image))
+    print(f"Segmented black background image saved as: {output_segmented_image_path}")
+
+    # Create a DataFrame with the analyzed data
+    fruit_df = pd.DataFrame(fruit_data)
+
+    # Display the analyzed data
+    print("\nCIE L*a*b* Color Data for Black Background Image:")
+    print(fruit_df)
+
+    # Return the DataFrame
+    return fruit_df
+
+# Main Execution
+if __name__ == "__main__":
+    # Paths to images
+    white_bg_image_path = "path_to_white_background_image.jpg"  # Replace with your white background image path
+    black_bg_image_path = "path_to_black_background_image.jpg"  # Replace with your black background image path
+
+    # Step 1: Generate the mask from the white background image
+    mask_path = "segmentation_mask.npy"
+    generate_mask(white_bg_image_path, save_mask_path=mask_path)
+
+    # Step 2: Apply the mask to the black background image and analyze
+    output_segmented_image_path = "segmented_black_image.jpg"
+    analyze_black_bg_image(black_bg_image_path, mask_path, output_segmented_image_path)
