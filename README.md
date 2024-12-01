@@ -19,3 +19,6 @@ To run the script, install the following Python libraries:
 Install them using:
 ```bash
 pip install matplotlib scikit-image pandas
+
+## License
+This project is licensed under the [Creative Commons Zero v1.0 Universal (CC0)](https://creativecommons.org/publicdomain/zero/1.0/).
