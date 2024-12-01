@@ -1,0 +1,82 @@
+# ------------------------------------------------------------------------------
+# Image Analysis for Segmentation and Color Analysis in the CIE L*a*b* Color Space
+# Author: [Castagnini J.M.]
+# Date: [1/12/2024]
+# Version: 1.0
+#
+# License:
+# This script is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0).
+# You are free to share, reuse, and adapt the code, as long as appropriate credit is given.
+# More information about the license: https://creativecommons.org/licenses/by/4.0/
+#
+# Description:
+# This script performs fruit segmentation from an image with a white background,
+# calculating the color properties in the CIE L*a*b* space, as well as the area and 
+# position of each segmented region. It also outputs a segmented image without the background.
+# ------------------------------------------------------------------------------
+
+# Import required libraries
+import matplotlib.pyplot as plt
+from skimage import io, color, filters, measure, morphology, img_as_ubyte
+import pandas as pd
+
+# Cargar la imagen (reemplaza "path_to_image" con la ubicación de tu archivo)
+image_path = "path_to_image"
+image = io.imread(image_path)
+
+# Convert the image to grayscale
+gray_image = color.rgb2gray(image)
+
+# Apply a threshold to segment fruits from the white background
+threshold = filters.threshold_otsu(gray_image)
+binary_mask = gray_image < threshold
+
+# Refine the binary mask with morphological operations
+binary_mask = morphology.remove_small_objects(binary_mask, 200)  # Remove small noise
+binary_mask = morphology.remove_small_holes(binary_mask, 200)  # Fill small holes
+
+# Display the segmented mask
+plt.imshow(binary_mask, cmap='gray')
+plt.title("Segmented Mask")
+plt.axis("off")
+plt.show()
+
+# Label connected regions (fruits) in the image
+labeled_image = measure.label(binary_mask)
+regions = measure.regionprops(labeled_image, intensity_image=gray_image)
+
+# Convert the image to CIE L*a*b* color space for color analysis
+lab_image = color.rgb2lab(image)
+
+# Compute relevant properties for each fruit (CIE L*a*b* color, area, centroid)
+fruit_data = []
+for region in regions:
+    if region.area >= 500:  # Filter out small regions
+        fruit_mask = labeled_image == region.label
+        fruit_lab = lab_image[fruit_mask]
+        mean_lab = fruit_lab.mean(axis=0)
+        fruit_data.append({
+            "L*": mean_lab[0],
+            "a*": mean_lab[1],
+            "b*": mean_lab[2],
+            "Area": region.area,
+            "Centroid": region.centroid,
+            "Bounding Box": region.bbox
+        })
+
+# Create a DataFrame with the analyzed data
+fruit_df = pd.DataFrame(fruit_data)
+
+# Display the analyzed data
+print("CIE L*a*b* Color Data:")
+print(fruit_df)
+
+# Display the total number of detected fruits
+print(f"\nTotal fruits detected: {len(fruit_df)}")
+
+# Save the segmented image without background
+segmented_image = image.copy()
+segmented_image[~binary_mask] = 255  # Set background to white (255)
+output_path = "segmented_image.jpg"
+io.imsave(output_path, img_as_ubyte(segmented_image))
+print(f"Segmented image saved as: {output_path}")
