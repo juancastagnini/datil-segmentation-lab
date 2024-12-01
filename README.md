@@ -22,4 +22,4 @@ pip install matplotlib scikit-image pandas
 ```
 
 ## License
-This project is licensed under the [Creative Commons Zero v1.0 Universal (CC0)](https://creativecommons.org/publicdomain/zero/1.0/).
+This project is licensed under the [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
